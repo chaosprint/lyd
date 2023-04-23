@@ -4,7 +4,7 @@ use cpal::{
     FromSample, Sample, SizedSample,
 };
 
-use lyd::{context, node::SinOsc};
+use lyd::{context, node::*};
 
 fn main() -> anyhow::Result<()> {
     let host = cpal::default_host();
@@ -48,7 +48,8 @@ where
         .frames(BLOCK_SIZE)
         .channels(channels)
         .sr(sample_rate);
-    context.add_sig("output", vec![SinOsc::new().freq(220.)]);
+    context.add_sig("output", vec![sin_osc().freq("~fm"), mul(0.1)]);
+    context.add_sig("~fm", vec![sin_osc().freq(200.), mul(300.), add(600.)]);
 
     let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
 

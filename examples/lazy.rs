@@ -8,7 +8,7 @@ fn main() -> Result<()> {
     ctx.next_block();
     println!(
         "output buffer {:?}",
-        ctx.buffers.get("output").unwrap().lock()
+        ctx.buffers.get("output").unwrap() //.lock()
     );
     Ok(())
 }

@@ -1,11 +1,11 @@
 pub mod node;
 use crate::node::*;
 use hashbrown::HashMap;
-use parking_lot::Mutex;
+// use parking_lot::Mutex;
 use smallvec::{smallvec, SmallVec};
-use std::sync::Arc;
+// use std::sync::Arc;
 
-pub type Buffers = HashMap<String, Arc<Mutex<Buffer>>>;
+pub type Buffers = HashMap<String, Buffer>;
 pub type Buffer = SmallVec<[SmallVec<[f32; 1024]>; 2]>;
 pub type Sig = Vec<Box<dyn Node + Send>>;
 pub type Sigs = HashMap<String, Sig>;
@@ -18,7 +18,7 @@ pub struct Context {
     pub sr: usize,
     pub frames: usize,
     pub channels: usize,
-    pub sig_chains: Arc<Mutex<Sigs>>,
+    pub sig_chains: Sigs,
     pub buffers: Buffers,
     pub process_order: Vec<String>,
 }
@@ -29,7 +29,8 @@ impl Context {
             sr: 44100,
             frames: 128,
             channels: 2,
-            sig_chains: Arc::new(Mutex::new(HashMap::new())),
+            sig_chains: HashMap::new(),
+            // sig_chains: //Arc::new(Mutex::new(HashMap::new())),
             buffers: HashMap::new(),
             process_order: Vec::new(),
         }
@@ -62,13 +63,13 @@ impl Context {
                 }
             }
         }
-        self.sig_chains.lock().insert(name.to_string(), sig);
+        self.sig_chains.insert(name.to_string(), sig);
 
         self.buffers.insert(
             name.to_string(),
-            Arc::new(Mutex::new(
-                smallvec![smallvec![0.0_f32; self.frames]; self.channels],
-            )),
+            // Arc::new(Mutex::new(
+            smallvec![smallvec![0.0_f32; self.frames]; self.channels]
+            // )),
         );
         self.process_order.push(name.to_string());
     }
@@ -76,7 +77,7 @@ impl Context {
     pub fn next_block(&mut self) {
         let ctx = self as *mut Context;
         for name in unsafe { (*ctx).process_order.iter_mut() } {
-            let mut lock = self.sig_chains.lock();
+            let lock = &mut self.sig_chains; //.lock();
             let sig = lock.get_mut(name).unwrap();
             for node in sig {
                 node.process(unsafe {&mut *ctx}, &name);
