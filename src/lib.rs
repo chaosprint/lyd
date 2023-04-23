@@ -67,11 +67,11 @@ impl Context {
 
         self.buffers.insert(
             name.to_string(),
-            // Arc::new(Mutex::new(
             smallvec![smallvec![0.0_f32; self.frames]; self.channels]
-            // )),
         );
-        self.process_order.push(name.to_string());
+        if !self.process_order.contains(&name.to_string()) {
+            self.process_order.push(name.to_string());
+        }
     }
 
     pub fn next_block(&mut self) {

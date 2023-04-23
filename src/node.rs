@@ -4,7 +4,7 @@ use smallvec::{smallvec, SmallVec};
 pub type RefList = SmallVec<[String; 5]>; // not likely to have more than 5 refs
 pub enum ParamResult {
     Float(f32),
-    Buffer(Buffer),
+    Buffer(*const SmallVec<[f32; 1024]>),
 }
 
 pub trait Node: Send {
@@ -28,8 +28,9 @@ impl Signal for f32 {
 
 impl Signal for &str {
     fn give_buf(&self, context: &Context) -> ParamResult {
-        let cell = context.buffers.get(*self).unwrap(); // .lock();
-        ParamResult::Buffer(cell.clone())
+        let buf: &SmallVec<[SmallVec<[f32; 1024]>; 2]> = context.buffers.get(*self).unwrap();
+        let buf_ptr: *const SmallVec<[f32; 1024]> = buf.as_ptr();
+        ParamResult::Buffer(buf_ptr)
     }
     fn get_ref(&self) -> Option<&str> {
         Some(self)
@@ -82,58 +83,24 @@ impl Node for SinOsc {
 
         let freq_ptr = match self.freq.give_buf(context) {
             ParamResult::Float(f) => {
-                let mut v = Box::new([f; 1024]);
-                v.as_mut_ptr()
-            },
-            ParamResult::Buffer(b) => b[0].as_ptr(),
+                let v = Box::new([f; 1024]); // only one chan
+                v.as_ptr()
+            }
+            ParamResult::Buffer(b) => unsafe { (*b).as_ptr() },
         };
 
         for j in 0..frames {
             buf[0][j] = (self.phase * two_pi).sin() * self.amp;
-            let freq = unsafe { *freq_ptr.add(j) };
+            let freq = unsafe { &*freq_ptr.add(j) };
             self.phase += freq * inv_sr;
         }
 
-        // for (j, freq) in freq_iter.enumerate().take(frames) {
-        //     buf[0][j] = (self.phase * two_pi).sin() * self.amp;
-        //     self.phase += freq * inv_sr;
-        // }
-
-        // for j in 0..frames {
-        //     buf[0][j] = (self.phase * 2.0 * std::f32::consts::PI).sin() * self.amp;
-        //     let freq = match self.freq.give_buf(context) {
-        //         ParamResult::Float(f) => f,
-        //         ParamResult::Buffer(b) => b[0][j],
-        //     };
-        //     self.phase += freq / context.sr as f32;
-        // }
-        
         let buf0_ptr: *const f32 = buf[0].as_ptr();
         for channel in buf.iter_mut().skip(1) {
             unsafe {
                 std::ptr::copy_nonoverlapping(buf0_ptr, channel.as_mut_ptr(), frames);
             }
         }
-
-        // for i in 1..channels {
-        //     buf[i] = buf[0].clone();
-        // }
-
-        // let buf0_copy: Vec<f32> = buf[0].to_vec();
-        // for channel in buf.iter_mut().skip(1) {
-        //     channel.copy_from_slice(&buf0_copy);
-        // }
-
-        // for channel in buf.iter_mut().skip(1) {
-        //     copy_buf_data(&buf[0], channel);
-        // }
-        // for channel in buf.iter_mut().skip(1) {
-            // channel.copy_from_slice(&buf[0]);
-        // }
-        // let b = buf[0].as_mut_ptr();
-        // for i in 1..channels {
-        //     buf[i] = buf[0].clone();
-        // }
     }
     fn get_ref(&self) -> Option<RefList> {
         let mut refs = RefList::new();
@@ -148,12 +115,6 @@ impl Node for SinOsc {
     }
 }
 
-
-fn copy_buf_data(src: &SmallVec<[f32; 1024]>, dst: &mut SmallVec<[f32; 1024]>) {
-    dst.copy_from_slice(src);
-}
-
-
 pub struct Mul {
     pub val: Box<dyn Signal>,
 }
@@ -166,23 +127,33 @@ impl Mul {
 
 impl Node for Mul {
     fn process(&mut self, context: &mut Context, name: &str) {
-        // println!("called");
         let ctx = &mut *context as *mut Context;
-        let mut lock;
+        let lock: &mut SmallVec<[SmallVec<[f32; 1024]>; 2]>;
         let buf;
         unsafe {
             lock = (*ctx).buffers.get_mut(name).unwrap(); //.lock();
             buf = &mut *lock;
         }
-        let val = match self.val.give_buf(context) {
-            ParamResult::Float(f) => smallvec![smallvec![f; context.frames]],
-            ParamResult::Buffer(b) => b,
+        let frames = context.frames;
+
+        let val_ptr = match self.val.give_buf(context) {
+            ParamResult::Float(f) => {
+                let v = Box::new([f; 1024]); // only one chan
+                v.as_ptr()
+            }
+            ParamResult::Buffer(b) => unsafe { (*b).as_ptr() },
         };
-        for j in 0..context.frames {
-            buf[0][j] *= val[0][j];
+
+        for j in 0..frames {
+            let val = unsafe { &*val_ptr.add(j) };
+            buf[0][j] *= val;
         }
-        for i in 1..context.channels {
-            buf[i] = buf[0].clone();
+
+        let buf0_ptr: *const f32 = buf[0].as_ptr();
+        for channel in buf.iter_mut().skip(1) {
+            unsafe {
+                std::ptr::copy_nonoverlapping(buf0_ptr, channel.as_mut_ptr(), frames);
+            }
         }
     }
     fn get_ref(&self) -> Option<RefList> {
@@ -212,22 +183,43 @@ impl Node for Add {
     fn process(&mut self, context: &mut Context, name: &str) {
         // println!("called");
         let ctx = &mut *context as *mut Context;
-        let mut lock;
+        let lock;
         let buf;
         unsafe {
             lock = (*ctx).buffers.get_mut(name).unwrap(); //.lock();
             buf = &mut *lock;
         }
-        let val = match self.val.give_buf(context) {
-            ParamResult::Float(f) => smallvec![smallvec![f; context.frames]],
-            ParamResult::Buffer(b) => b,
+        let frames = context.frames;
+
+        let val_ptr = match self.val.give_buf(context) {
+            ParamResult::Float(f) => {
+                let v = Box::new([f; 1024]); // only one chan
+                v.as_ptr()
+            }
+            ParamResult::Buffer(b) => unsafe { (*b).as_ptr() },
         };
-        for j in 0..context.frames {
-            buf[0][j] += val[0][j];
+
+        for j in 0..frames {
+            let val = unsafe { &*val_ptr.add(j) };
+            buf[0][j] *= val;
         }
-        for i in 1..context.channels {
-            buf[i] = buf[0].clone();
+
+        let buf0_ptr: *const f32 = buf[0].as_ptr();
+        for channel in buf.iter_mut().skip(1) {
+            unsafe {
+                std::ptr::copy_nonoverlapping(buf0_ptr, channel.as_mut_ptr(), frames);
+            }
         }
+        // let val = match self.val.give_buf(context) {
+        //     ParamResult::Float(f) => smallvec![smallvec![f; context.frames]],
+        //     ParamResult::Buffer(b) => b,
+        // };
+        // for j in 0..context.frames {
+        //     buf[0][j] += val[0][j];
+        // }
+        // for i in 1..context.channels {
+        //     buf[i] = buf[0].clone();
+        // }
     }
     fn get_ref(&self) -> Option<RefList> {
         let mut refs = RefList::new();

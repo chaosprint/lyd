@@ -9,6 +9,10 @@ edition = "2021"
 name = "next_block"
 harness = false
 
+[[bench]]
+name = "fm"
+harness = false
+
 [dev-dependencies]
 cpal = "0.15.2"
 criterion = "0.4.0"
