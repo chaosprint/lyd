@@ -101,3 +101,103 @@ impl Node for SinOsc {
         }
     }
 }
+
+pub struct Mul {
+    pub val: Box<dyn Signal>,
+}
+
+impl Mul {
+    pub fn new(val: impl Signal + 'static) -> Box<Self> {
+        Box::new(Self { val: Box::new(val) })
+    }
+}
+
+impl Node for Mul {
+    fn process(&mut self, context: &mut Context, name: &str) {
+        // println!("called");
+        let ctx = &mut *context as *mut Context;
+        let mut lock;
+        let buf;
+        unsafe {
+            lock = (*ctx).buffers.get_mut(name).unwrap().lock();
+            buf = &mut *lock;
+        }
+        let val = match self.val.give_buf(context) {
+            ParamResult::Float(f) => smallvec![smallvec![f; context.frames]],
+            ParamResult::Buffer(b) => b,
+        };
+        for j in 0..context.frames {
+            buf[0][j] *= val[0][j];
+        }
+        for i in 1..context.channels {
+            buf[i] = buf[0].clone();
+        }
+    }
+    fn get_ref(&self) -> Option<RefList> {
+        let mut refs = RefList::new();
+        if let Some(key) = self.val.get_ref() {
+            refs.push(key.to_string());
+        }
+        if refs.is_empty() {
+            None
+        } else {
+            Some(refs)
+        }
+    }
+}
+
+pub struct Add {
+    pub val: Box<dyn Signal>,
+}
+
+impl Add {
+    pub fn new(val: impl Signal + 'static) -> Box<Self> {
+        Box::new(Self { val: Box::new(val) })
+    }
+}
+
+impl Node for Add {
+    fn process(&mut self, context: &mut Context, name: &str) {
+        // println!("called");
+        let ctx = &mut *context as *mut Context;
+        let mut lock;
+        let buf;
+        unsafe {
+            lock = (*ctx).buffers.get_mut(name).unwrap().lock();
+            buf = &mut *lock;
+        }
+        let val = match self.val.give_buf(context) {
+            ParamResult::Float(f) => smallvec![smallvec![f; context.frames]],
+            ParamResult::Buffer(b) => b,
+        };
+        for j in 0..context.frames {
+            buf[0][j] += val[0][j];
+        }
+        for i in 1..context.channels {
+            buf[i] = buf[0].clone();
+        }
+    }
+    fn get_ref(&self) -> Option<RefList> {
+        let mut refs = RefList::new();
+        if let Some(key) = self.val.get_ref() {
+            refs.push(key.to_string());
+        }
+        if refs.is_empty() {
+            None
+        } else {
+            Some(refs)
+        }
+    }
+}
+
+pub fn sin_osc() -> Box<SinOsc> {
+    SinOsc::new()
+}
+
+pub fn mul(val: impl Signal + 'static) -> Box<Mul> {
+    Mul::new(val)
+}
+
+pub fn add(val: impl Signal + 'static) -> Box<Add> {
+    Add::new(val)
+}

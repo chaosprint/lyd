@@ -4,11 +4,14 @@ use cpal::{
     FromSample, Sample, SizedSample,
 };
 
+use lyd::{context, node::SinOsc};
+
 fn main() -> anyhow::Result<()> {
     let host = cpal::default_host();
 
-    let device = host.default_output_device()
-    .expect("failed to find output device");
+    let device = host
+        .default_output_device()
+        .expect("failed to find output device");
     println!("Output device: {}", device.name()?);
 
     let config = device.default_output_config().unwrap();
@@ -33,45 +36,44 @@ fn main() -> anyhow::Result<()> {
     }
 }
 
+const BLOCK_SIZE: usize = 128;
+
 pub fn run<T>(device: &cpal::Device, config: &cpal::StreamConfig) -> Result<(), anyhow::Error>
 where
     T: SizedSample + FromSample<f32>,
 {
-    let sample_rate = config.sample_rate.0 as f32;
+    let sample_rate = config.sample_rate.0 as usize;
     let channels = config.channels as usize;
-
-    // Produce a sinusoid of maximum amplitude.
-    let mut sample_clock = 0f32;
-    let mut next_value = move || {
-        sample_clock = (sample_clock + 1.0) % sample_rate;
-        (sample_clock * 440.0 * 2.0 * std::f32::consts::PI / sample_rate).sin()
-    };
+    let mut context = context()
+        .frames(BLOCK_SIZE)
+        .channels(channels)
+        .sr(sample_rate);
+    context.add_sig("output", vec![SinOsc::new().freq(220.)]);
 
     let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
 
     let stream = device.build_output_stream(
         config,
         move |data: &mut [T], _: &cpal::OutputCallbackInfo| {
-            write_data(data, channels, &mut next_value)
+            let blocks_needed = data.len() / 2 / BLOCK_SIZE;
+            let block_step = channels * BLOCK_SIZE;
+            for current_block in 0..blocks_needed {
+                context.next_block();
+                let block = context.buffers.get("output").unwrap().lock();
+                for i in 0..BLOCK_SIZE {
+                    for chan in 0..channels {
+                        let value: T = T::from_sample(block[chan][i]);
+                        data[(i * channels + chan) + (current_block) * block_step] = value;
+                    }
+                }
+            }
         },
         err_fn,
         None,
     )?;
     stream.play()?;
 
-    std::thread::sleep(std::time::Duration::from_millis(1000));
+    std::thread::sleep(std::time::Duration::from_millis(3000));
 
     Ok(())
-}
-
-fn write_data<T>(output: &mut [T], channels: usize, next_sample: &mut dyn FnMut() -> f32)
-where
-    T: Sample + FromSample<f32>,
-{
-    for frame in output.chunks_mut(channels) {
-        let value: T = T::from_sample(next_sample());
-        for sample in frame.iter_mut() {
-            *sample = value;
-        }
-    }
 }
