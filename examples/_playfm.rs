@@ -4,7 +4,7 @@ use cpal::{
     FromSample, SizedSample,
 };
 
-use lyd::{context, node::*};
+use lyd::*;
 
 fn main() -> anyhow::Result<()> {
     let host = cpal::default_host();
@@ -47,9 +47,13 @@ where
     let mut context = context()
         .frames(BLOCK_SIZE)
         .channels(channels)
-        .sr(sample_rate);
-    context.add_sig("output", vec![sin_osc().freq("~fm"), mul(0.1)]);
-    context.add_sig("~fm", vec![sin_osc().freq(200.), mul(900.), add(1000.)]);
+        .sr(sample_rate)
+        .build(&[&[NodeConfig::SinOsc(SinOscConfig {
+            freq: 440.0,
+            phase: 0.0,
+            amp: 0.5,
+            sr: sample_rate,
+    })]]);
 
     let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
 
@@ -59,8 +63,7 @@ where
             let blocks_needed = data.len() / 2 / BLOCK_SIZE;
             let block_step = channels * BLOCK_SIZE;
             for current_block in 0..blocks_needed {
-                context.next_block();
-                let block = context.buffers.get("output").unwrap(); //.lock();
+                let block = context.next_block();
                 for i in 0..BLOCK_SIZE {
                     for chan in 0..channels {
                         let value: T = T::from_sample(block[chan][i]);

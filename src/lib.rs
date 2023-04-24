@@ -1,12 +1,17 @@
-pub mod node;
-use crate::node::*;
-use hashbrown::HashMap;
+pub mod enums;
+pub use crate::enums::*;
+
 use smallvec::{smallvec, SmallVec};
 
-pub type Buffers = HashMap<String, Buffer>;
-pub type Buffer = SmallVec<[SmallVec<[f32; 1024]>; 2]>;
-pub type Sig = Vec<Box<dyn Node + Send>>;
-pub type Sigs = HashMap<String, Sig>;
+pub type Buffer = SmallVec<[SmallVec<[f32; 128]>; 2]>;
+pub type Signal = SmallVec<[Nodes; 16]>; // Nodes is a enum
+
+#[derive(Debug)]
+pub struct ProcessOrder {
+    pub row: usize,
+    pub column: usize,
+    pub sidechain_buf: SmallVec<[usize; 64]>, 
+}
 
 pub fn context() -> Context {
     Context::new()
@@ -16,9 +21,9 @@ pub struct Context {
     pub sr: usize,
     pub frames: usize,
     pub channels: usize,
-    pub sig_chains: Sigs,
-    pub buffers: Buffers,
-    pub process_order: Vec<String>,
+    pub signals: SmallVec<[Signal; 64]>,
+    pub buffers: SmallVec<[Buffer; 64]>,
+    pub process_order: SmallVec<[ProcessOrder; 1024]>, // 64*16
 }
 
 impl Context {
@@ -27,9 +32,9 @@ impl Context {
             sr: 44100,
             frames: 128,
             channels: 2,
-            sig_chains: HashMap::new(),
-            buffers: HashMap::new(),
-            process_order: Vec::new(),
+            signals: smallvec![],
+            buffers: smallvec![],
+            process_order: smallvec![],
         }
     }
 
@@ -48,37 +53,52 @@ impl Context {
         self
     }
 
-    pub fn add_sig(&mut self, name: &str, sig: Vec<Box<dyn Node + Send>>) {
-        for node in sig.iter() {
-            if let Some(refs) = node.get_ref() {
-                for r in refs {
-                    if self.process_order.contains(&r.to_string()) {
-                        continue;
-                    } else {
-                        self.process_order.insert(0, r.to_string());
+    pub fn build(mut self, signals: &[&[NodeConfig]]) -> Self {
+        for (row, signal) in signals.iter().enumerate() {
+            self.signals.push(smallvec![]);
+            for (column, node) in signal.iter().enumerate() {
+                match node {
+                    NodeConfig::SinOsc(config) => {
+                        self.signals[row].push(Nodes::SinOsc(SinOscStruct {
+                            freq: config.freq,
+                            phase: config.phase,
+                            amp: config.amp,
+                            sr: config.sr,
+                        }));
                     }
+                    NodeConfig::Add(config) => {
+                        self.signals[row].push(Nodes::Add(AddStruct {
+                            add: config.add,
+                        }));
+                    }
+                }
+                self.process_order.push(ProcessOrder {
+                    row,
+                    column,
+                    sidechain_buf: smallvec![],
+                });
+            }
+            self.buffers.push(smallvec![smallvec![0.0; self.frames]; self.channels]);
+        }
+        self
+    }
+
+    pub fn next_block(&mut self) -> &Buffer {
+        // println!("self.process_order {:?}", &self.process_order);
+        for order in &self.process_order {
+            let buf = &mut self.buffers[order.row];
+            let signal = &mut self.signals[order.row];
+            for node in signal {
+                match node {
+                    Nodes::SinOsc(node) => {
+                        node.process(buf, None)
+                    }
+                    Nodes::Add(node) => {
+                        node.process(buf, None)
+                    },
                 }
             }
         }
-        self.sig_chains.insert(name.to_string(), sig);
-
-        self.buffers.insert(
-            name.to_string(),
-            smallvec![smallvec![0.0_f32; self.frames]; self.channels],
-        );
-        if !self.process_order.contains(&name.to_string()) {
-            self.process_order.push(name.to_string());
-        }
-    }
-
-    pub fn next_block(&mut self) {
-        let ctx = self as *mut Context;
-        for name in unsafe { (*ctx).process_order.iter_mut() } {
-            let lock = &mut self.sig_chains; //.lock();
-            let sig = lock.get_mut(name).unwrap();
-            for node in sig {
-                node.process(unsafe { &mut *ctx }, &name);
-            }
-        }
+        &self.buffers[0]
     }
 }
