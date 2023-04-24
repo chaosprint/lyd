@@ -28,7 +28,6 @@ impl Context {
             frames: 128,
             channels: 2,
             sig_chains: HashMap::new(),
-            // sig_chains: //Arc::new(Mutex::new(HashMap::new())),
             buffers: HashMap::new(),
             process_order: Vec::new(),
         }

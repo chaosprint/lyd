@@ -1,7 +1,7 @@
 use crate::Context;
 use smallvec::SmallVec;
 
-pub type RefList = SmallVec<[String; 5]>; // not likely to have more than 5 refs
+pub type RefList = SmallVec<[String; 2]>;
 pub enum ParamResult {
     Float(f32),
     Buffer(*const SmallVec<[f32; 1024]>),
@@ -128,18 +128,10 @@ impl Node for Mul {
         let lock: &mut SmallVec<[SmallVec<[f32; 1024]>; 2]>;
         let buf;
         unsafe {
-            lock = (*ctx).buffers.get_mut(name).unwrap(); //.lock();
+            lock = (*ctx).buffers.get_mut(name).unwrap();
             buf = &mut *lock;
         }
         let frames = context.frames;
-
-        // let val_ptr = match self.val.give_buf(context) {
-        //     ParamResult::Float(f) => {
-        //         let v = Box::new([f; 1024]); // only one chan
-        //         v.as_ptr()
-        //     }
-        //     ParamResult::Buffer(b) => unsafe { (*b).as_ptr() },
-        // };
 
         let result = self.val.give_buf(context);
 
@@ -203,35 +195,12 @@ impl Node for Add {
             };
         }
 
-        // let val_ptr = match self.val.give_buf(context) {
-        //     ParamResult::Float(f) => {
-        //         let v = Box::new([f; 1024]); // only one chan
-        //         v.as_ptr()
-        //     }
-        //     ParamResult::Buffer(b) => unsafe { (*b).as_ptr() },
-        // };
-
-        // for j in 0..frames {
-        //     let val = unsafe { &*val_ptr.add(j) };
-        //     buf[0][j] *= val;
-        // }
-
         let buf0_ptr: *const f32 = buf[0].as_ptr();
         for channel in buf.iter_mut().skip(1) {
             unsafe {
                 std::ptr::copy_nonoverlapping(buf0_ptr, channel.as_mut_ptr(), frames);
             }
         }
-        // let val = match self.val.give_buf(context) {
-        //     ParamResult::Float(f) => smallvec![smallvec![f; context.frames]],
-        //     ParamResult::Buffer(b) => b,
-        // };
-        // for j in 0..context.frames {
-        //     buf[0][j] += val[0][j];
-        // }
-        // for i in 1..context.channels {
-        //     buf[i] = buf[0].clone();
-        // }
     }
     fn get_ref(&self) -> Option<RefList> {
         let mut refs = RefList::new();
