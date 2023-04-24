@@ -1,7 +1,7 @@
 use anyhow;
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
-    FromSample, Sample, SizedSample,
+    FromSample, SizedSample,
 };
 
 use lyd::{context, node::SinOsc};

@@ -1,9 +1,7 @@
 pub mod node;
 use crate::node::*;
 use hashbrown::HashMap;
-// use parking_lot::Mutex;
 use smallvec::{smallvec, SmallVec};
-// use std::sync::Arc;
 
 pub type Buffers = HashMap<String, Buffer>;
 pub type Buffer = SmallVec<[SmallVec<[f32; 1024]>; 2]>;
@@ -58,7 +56,7 @@ impl Context {
                     if self.process_order.contains(&r.to_string()) {
                         continue;
                     } else {
-                        self.process_order.push(r.to_string());
+                        self.process_order.insert(0, r.to_string());
                     }
                 }
             }
@@ -67,7 +65,7 @@ impl Context {
 
         self.buffers.insert(
             name.to_string(),
-            smallvec![smallvec![0.0_f32; self.frames]; self.channels]
+            smallvec![smallvec![0.0_f32; self.frames]; self.channels],
         );
         if !self.process_order.contains(&name.to_string()) {
             self.process_order.push(name.to_string());
@@ -80,7 +78,7 @@ impl Context {
             let lock = &mut self.sig_chains; //.lock();
             let sig = lock.get_mut(name).unwrap();
             for node in sig {
-                node.process(unsafe {&mut *ctx}, &name);
+                node.process(unsafe { &mut *ctx }, &name);
             }
         }
     }

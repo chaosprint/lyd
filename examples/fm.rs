@@ -1,7 +1,7 @@
 use anyhow;
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
-    FromSample, Sample, SizedSample,
+    FromSample, SizedSample,
 };
 
 use lyd::{context, node::*};
@@ -49,7 +49,7 @@ where
         .channels(channels)
         .sr(sample_rate);
     context.add_sig("output", vec![sin_osc().freq("~fm"), mul(0.1)]);
-    context.add_sig("~fm", vec![sin_osc().freq(200.), mul(300.), add(600.)]);
+    context.add_sig("~fm", vec![sin_osc().freq(200.), mul(900.), add(1000.)]);
 
     let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
 

@@ -1,5 +1,5 @@
-use crate::{Buffer, Context};
-use smallvec::{smallvec, SmallVec};
+use crate::Context;
+use smallvec::SmallVec;
 
 pub type RefList = SmallVec<[String; 5]>; // not likely to have more than 5 refs
 pub enum ParamResult {
@@ -81,18 +81,15 @@ impl Node for SinOsc {
         let two_pi = 2.0 * std::f32::consts::PI;
         let inv_sr = 1.0 / context.sr as f32;
 
-        let freq_ptr = match self.freq.give_buf(context) {
-            ParamResult::Float(f) => {
-                let v = Box::new([f; 1024]); // only one chan
-                v.as_ptr()
-            }
-            ParamResult::Buffer(b) => unsafe { (*b).as_ptr() },
-        };
+        let result = self.freq.give_buf(context);
 
         for j in 0..frames {
             buf[0][j] = (self.phase * two_pi).sin() * self.amp;
-            let freq = unsafe { &*freq_ptr.add(j) };
-            self.phase += freq * inv_sr;
+            // let freq = unsafe { &*freq_ptr.add(j) };
+            self.phase += match result {
+                ParamResult::Float(f) => f * inv_sr,
+                ParamResult::Buffer(b) => unsafe { (*b)[j] * inv_sr },
+            };
         }
 
         let buf0_ptr: *const f32 = buf[0].as_ptr();
@@ -136,17 +133,22 @@ impl Node for Mul {
         }
         let frames = context.frames;
 
-        let val_ptr = match self.val.give_buf(context) {
-            ParamResult::Float(f) => {
-                let v = Box::new([f; 1024]); // only one chan
-                v.as_ptr()
-            }
-            ParamResult::Buffer(b) => unsafe { (*b).as_ptr() },
-        };
+        // let val_ptr = match self.val.give_buf(context) {
+        //     ParamResult::Float(f) => {
+        //         let v = Box::new([f; 1024]); // only one chan
+        //         v.as_ptr()
+        //     }
+        //     ParamResult::Buffer(b) => unsafe { (*b).as_ptr() },
+        // };
+
+        let result = self.val.give_buf(context);
 
         for j in 0..frames {
-            let val = unsafe { &*val_ptr.add(j) };
-            buf[0][j] *= val;
+            // let val = unsafe { &*val_ptr.add(j) };
+            buf[0][j] *= match result {
+                ParamResult::Float(f) => f,
+                ParamResult::Buffer(b) => unsafe { (*b)[j] },
+            };
         }
 
         let buf0_ptr: *const f32 = buf[0].as_ptr();
@@ -186,23 +188,33 @@ impl Node for Add {
         let lock;
         let buf;
         unsafe {
-            lock = (*ctx).buffers.get_mut(name).unwrap(); //.lock();
+            lock = (*ctx).buffers.get_mut(name).unwrap();
             buf = &mut *lock;
         }
         let frames = context.frames;
 
-        let val_ptr = match self.val.give_buf(context) {
-            ParamResult::Float(f) => {
-                let v = Box::new([f; 1024]); // only one chan
-                v.as_ptr()
-            }
-            ParamResult::Buffer(b) => unsafe { (*b).as_ptr() },
-        };
+        let result = self.val.give_buf(context);
 
         for j in 0..frames {
-            let val = unsafe { &*val_ptr.add(j) };
-            buf[0][j] *= val;
+            // let val = unsafe { &*val_ptr.add(j) };
+            buf[0][j] += match result {
+                ParamResult::Float(f) => f,
+                ParamResult::Buffer(b) => unsafe { (*b)[j] },
+            };
         }
+
+        // let val_ptr = match self.val.give_buf(context) {
+        //     ParamResult::Float(f) => {
+        //         let v = Box::new([f; 1024]); // only one chan
+        //         v.as_ptr()
+        //     }
+        //     ParamResult::Buffer(b) => unsafe { (*b).as_ptr() },
+        // };
+
+        // for j in 0..frames {
+        //     let val = unsafe { &*val_ptr.add(j) };
+        //     buf[0][j] *= val;
+        // }
 
         let buf0_ptr: *const f32 = buf[0].as_ptr();
         for channel in buf.iter_mut().skip(1) {
