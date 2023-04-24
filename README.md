@@ -2,15 +2,14 @@
 
 `lyd` (the Norwegian/Danish word for `audio`) is a rust library that offers an audio graph, nodes, and message system for dynamic audio/music control including node adding, removing and modifying.
 
-- minimal but intuitive apis (read more below)
-- consideration for optimizations: wasm, embedded devices, etc.
-- try to combine these two
+`lyd` aims to offer and balance:
 
-read more about the philosophy of `lyd` in [this blog post (wip, do not click)]().
+1. minimal but intuitive apis (read more below)
+2. consideration for optimizations: wasm, embedded devices, etc.
 
 ## usage
 
-```
+```rust
 use lyd::*;
 
 fn main() {
@@ -27,8 +26,6 @@ more in the `examples` folder.
 
 ## contribution
 
-if you can contribute a node, that would be great!
+poc so far, many bugs, will break the apis.
 
-follow the procedure here.
-
-besides that, bug report and feature suggestions are welcomed.
+but feel free to write your suggestions at issues

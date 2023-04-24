@@ -1,45 +1,53 @@
+#[allow(unused_imports)]
 use crate::enums::*;
+use crate::params::*;
 
 #[macro_export]
 macro_rules! sin_osc {
-    () => {
-        sin_osc!({})
-    };
-    ( {} ) => {
-        sin_osc!({freq: 440.0, phase: 0.0, amp: 1.0, sr: 44100})
-    };
-    ( { $($key:ident : $value:expr),* $(,)? } ) => {
-        {
-            let mut osc = SinOscConfig::default();
-            $(
-                match stringify!($key) {
-                    "freq" => osc.freq = $value,
-                    "phase" => osc.phase = $value,
-                    "amp" => osc.amp = $value,
-                    "sr" => osc.sr = $value,
-                    _ => {}
-                }
-            )*
-            NodeConfig::SinOsc(osc)
-        }
-    };
+    // ( { $($key:ident : $value:expr),* $(,)? } ) => {
+    //     {
+    //         let mut config = SinOscConfig::default();
+    //         $(
+    //             match stringify!($key) {
+    //                 "freq" => config.freq = $value as f32,
+    //                 "phase" => config.phase = $value as f32,
+    //                 "amp" => config.amp = $value as f32,
+    //                 "sr" => config.sr = $value as u32,
+    //                 _ => {}
+    //             }
+    //         )*
+    //         NodeConfig::SinOsc(config)
+    //     }
+    // };
     ( $($value:expr),* $(,)? ) => {
         {
-            let mut osc = SinOscConfig::default();
+            let mut config = SinOscConfig::default();
             let mut values = [$($value),*].iter();
             if let Some(&freq) = values.next() {
-                osc.freq = freq;
+                config.freq = freq.as_param();
             }
             if let Some(&phase) = values.next() {
-                osc.phase = phase;
+                config.phase = phase.as_param();
             }
             if let Some(&amp) = values.next() {
-                osc.amp = amp;
+                config.amp = amp.as_param();
             }
-            if let Some(&sr) = values.next() {
-                osc.sr = sr as u32;
+            NodeConfig::SinOsc(config)
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! add {
+    ( $($value:expr),* $(,)? ) => {
+        {
+            let mut config = AddConfig { add: Param::Float(0.0) };
+            let mut values = [$($value),*].iter();
+            if let Some(&val) = values.next() {
+                config.add = val.as_param();
             }
-            NodeConfig::SinOsc(osc)
+
+            NodeConfig::Add(config)
         }
     };
 }

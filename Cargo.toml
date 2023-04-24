@@ -20,6 +20,11 @@ name = "sine"
 harness = false
 
 
+[[bench]]
+name = "fm"
+harness = false
+
+
 [dev-dependencies]
 cpal = "0.15.2"
 criterion = "0.4.0"
