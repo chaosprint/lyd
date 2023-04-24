@@ -11,7 +11,7 @@ pub struct SinOscConfig {
     pub freq: f32,
     pub phase: f32,
     pub amp: f32,
-    pub sr: usize,
+    pub sr: u32,
 }
 
 pub struct AddConfig {
@@ -27,11 +27,22 @@ pub struct SinOscStruct {
     pub freq: f32,
     pub phase: f32,
     pub amp: f32,
-    pub sr: usize,
+    pub sr: u32,
 }
 
 pub struct AddStruct {
     pub add: f32,
+}
+
+impl Default for SinOscConfig {
+    fn default() -> Self {
+        Self {
+            freq: 440.0,
+            phase: 0.0,
+            amp: 1.0,
+            sr: 44100,
+        }
+    }
 }
 
 impl SinOscStruct {

@@ -42,18 +42,13 @@ pub fn run<T>(device: &cpal::Device, config: &cpal::StreamConfig) -> Result<(), 
 where
     T: SizedSample + FromSample<f32>,
 {
-    let sample_rate = config.sample_rate.0 as usize;
+    let sample_rate = config.sample_rate.0;
     let channels = config.channels as usize;
     let mut context = context()
         .frames(BLOCK_SIZE)
         .channels(channels)
         .sr(sample_rate)
-        .build(&[&[NodeConfig::SinOsc(SinOscConfig {
-            freq: 440.0,
-            phase: 0.0,
-            amp: 0.5,
-            sr: sample_rate,
-    })]]);
+        .build(&[&[sin_osc!(440.0)]]);
 
     let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
 

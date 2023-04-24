@@ -1,6 +1,9 @@
 pub mod enums;
 pub use crate::enums::*;
 
+pub mod macros;
+pub use crate::macros::*;
+
 use smallvec::{smallvec, SmallVec};
 
 pub type Buffer = SmallVec<[SmallVec<[f32; 128]>; 2]>;
@@ -18,7 +21,7 @@ pub fn context() -> Context {
 }
 
 pub struct Context {
-    pub sr: usize,
+    pub sr: u32,
     pub frames: usize,
     pub channels: usize,
     pub signals: SmallVec<[Signal; 64]>,
@@ -48,7 +51,7 @@ impl Context {
         self
     }
 
-    pub fn sr(mut self, sr: usize) -> Self {
+    pub fn sr(mut self, sr: u32) -> Self {
         self.sr = sr;
         self
     }
@@ -63,7 +66,7 @@ impl Context {
                             freq: config.freq,
                             phase: config.phase,
                             amp: config.amp,
-                            sr: config.sr,
+                            sr: self.sr,
                         }));
                     }
                     NodeConfig::Add(config) => {
