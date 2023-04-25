@@ -31,5 +31,10 @@ criterion = "0.4.0"
 anyhow = "1.0.70"
 
 [dependencies]
-smallvec = "1.10.0"
-hashbrown = "0.13.2"
+smallvec = { version = "1.10.0" }
+hashbrown = { version = "0.13.2" }
+libm = { version = "0.2.5", optional = true }
+
+[features]
+default = []
+no_std = ["libm"]

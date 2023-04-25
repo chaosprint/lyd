@@ -2,9 +2,14 @@ use lyd::*;
 
 fn main() {
     let mut ctx = context()
-        .frames(4)
         .channels(2)
-        .sr(44100)
-        .build(&[&[sin_osc!(0)]]);
+        .frames(1024)
+        .sr(48000)
+        .build(&[&[NodeConfig::SinOsc(SinOscConfig {
+            freq: Param::Float(999.),
+            phase: Param::Float(0.0),
+            amp: Param::Float(0.1),
+            sr: Param::Int(48000),
+        })]]);
     println!("{:?}", ctx.next_block());
 }

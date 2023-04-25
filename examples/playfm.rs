@@ -45,14 +45,14 @@ where
     let sample_rate = config.sample_rate.0;
     let channels = config.channels as usize;
 
-
-    let mut ctx = context().frames(BLOCK_SIZE).channels(channels).sr(sample_rate).build(
-        &[
-            &[sin_osc!(1)],
-            &[sin_osc!(10.0, 0.0, 200.0), add!(400.5)],
-        ]
-    );
-
+    let mut ctx = context()
+        .channels(channels)
+        .frames(BLOCK_SIZE)
+        .sr(sample_rate)
+        .build(&[
+            &[sin_osc().freq(1), add(0.1)],
+            &[sin_osc().freq(10.0).amp(300.), add(500.1)],
+        ]);
 
     let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
 
@@ -62,10 +62,7 @@ where
             let blocks_needed = data.len() / 2 / BLOCK_SIZE;
             let block_step = channels * BLOCK_SIZE;
             for current_block in 0..blocks_needed {
-                
-                
                 let block = ctx.next_block();
-
 
                 for i in 0..BLOCK_SIZE {
                     for chan in 0..channels {

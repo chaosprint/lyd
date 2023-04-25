@@ -1,10 +1,10 @@
 use crate::Context;
-use smallvec::{SmallVec};
+use smallvec::SmallVec;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Param {
     Float(f32),
-    Int(u32)
+    Int(u32),
 }
 
 pub trait AsParam {

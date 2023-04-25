@@ -1,7 +1,56 @@
 use crate::params::*;
 use crate::Buffer;
 use smallvec::SmallVec;
+
+#[cfg(feature = "no_std")]
+use core::f32::consts::PI;
+
+#[cfg(feature = "no_std")]
+extern crate libm;
+
+#[cfg(not(feature = "no_std"))]
 use std::f32::consts::PI;
+
+pub fn sin_osc() -> NodeConfig {
+    NodeConfig::SinOsc(SinOscConfig::default())
+}
+
+impl NodeConfig {
+    pub fn freq(mut self, freq: impl AsParam) -> Self {
+        match &mut self {
+            NodeConfig::SinOsc(config) => config.freq = freq.as_param(),
+            _ => unreachable!("freq() is only available for SinOsc"),
+        }
+        self
+    }
+    pub fn phase(mut self, phase: f32) -> Self {
+        match &mut self {
+            NodeConfig::SinOsc(config) => config.phase = Param::Float(phase),
+            _ => unreachable!("phase() is only available for SinOsc"),
+        }
+        self
+    }
+    pub fn amp(mut self, amp: f32) -> Self {
+        match &mut self {
+            NodeConfig::SinOsc(config) => config.amp = Param::Float(amp),
+            _ => unreachable!("amp() is only available for SinOsc"),
+        }
+        self
+    }
+    pub fn sr(mut self, sr: u32) -> Self {
+        match &mut self {
+            NodeConfig::SinOsc(config) => config.sr = Param::Int(sr),
+            _ => unreachable!("sr() is only available for SinOsc"),
+        }
+        self
+    }
+}
+
+pub fn add(val: f32) -> NodeConfig {
+    NodeConfig::Add(AddConfig {
+        add: Param::Float(val),
+    })
+}
 
 pub enum NodeConfig {
     SinOsc(SinOscConfig),
@@ -51,13 +100,22 @@ impl SinOscStruct {
     pub fn process(
         &mut self,
         buf: &mut Buffer,
-        sidechain_buf: Option<*const SmallVec<[Buffer; 64]>>,
+        sidechain_buf: Option<*const SmallVec<[Buffer; 4]>>,
     ) {
         let channels = buf.len();
         let frames = buf[0].len();
 
         for f in 0..frames {
-            let val = (2.0 * PI * self.phase).sin() * self.amp;
+            let val = {
+                #[cfg(feature = "no_std")]
+                {
+                    libm::sinf(2.0 * PI * self.phase) * self.amp
+                }
+                #[cfg(not(feature = "no_std"))]
+                {
+                    (2.0 * PI * self.phase as f32).sin() * self.amp
+                }
+            };
             for c in 0..channels {
                 buf[c][f] = val;
             }
@@ -71,7 +129,7 @@ impl SinOscStruct {
 }
 
 impl AddStruct {
-    pub fn process(&mut self, buf: &mut Buffer, sidechain_buf: Option<&SmallVec<[Buffer; 64]>>) {
+    pub fn process(&mut self, buf: &mut Buffer, sidechain_buf: Option<&SmallVec<[Buffer; 4]>>) {
         let channels = buf.len();
         let frames = buf[0].len();
         for c in 0..channels {

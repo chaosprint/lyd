@@ -1,23 +1,25 @@
+#![cfg_attr(feature = "no_std", no_std)]
+
 pub mod enums;
 pub use crate::enums::*;
 
-pub mod macros;
-pub use crate::macros::*;
+// pub mod macros;
+// pub use crate::macros::*;
 
 pub mod params;
 pub use crate::params::*;
 
 use smallvec::{smallvec, SmallVec};
 
-pub type Buffer = SmallVec<[SmallVec<[f32; 128]>; 2]>;
+pub type Buffer = SmallVec<[SmallVec<[f32; 1024]>; 2]>;
 pub type Signal = SmallVec<[Nodes; 16]>; // Nodes is a enum
 
-#[derive(Debug)]
-pub struct ProcessOrder {
-    pub row: usize,
-    pub column: usize,
-    pub sidechain_buf: SmallVec<[usize; 64]>,
-}
+// #[derive(Debug)]
+// pub struct ProcessOrder {
+//     pub row: usize,
+//     pub column: usize,
+//     pub sidechain_buf: SmallVec<[usize; 64]>,
+// }
 
 pub fn context() -> Context {
     Context::new()
@@ -27,9 +29,9 @@ pub struct Context {
     pub sr: u32,
     pub frames: usize,
     pub channels: usize,
-    pub signals: SmallVec<[Signal; 64]>,
-    pub buffers: SmallVec<[Buffer; 64]>,
-    pub process_order: SmallVec<[ProcessOrder; 1024]>, // 64*16
+    pub signals: SmallVec<[Signal; 4]>,
+    pub buffers: SmallVec<[Buffer; 4]>,
+    // pub process_order: SmallVec<[ProcessOrder; 1024]>, // 64*16
 }
 
 impl Context {
@@ -40,7 +42,7 @@ impl Context {
             channels: 2,
             signals: smallvec![],
             buffers: smallvec![],
-            process_order: smallvec![],
+            // process_order: smallvec![],
         }
     }
 
@@ -76,14 +78,14 @@ impl Context {
                         self.signals[row].push(Nodes::Add(AddStruct { add: config.add }));
                     }
                 }
-                self.process_order.insert(
-                    0,
-                    ProcessOrder {
-                        row,
-                        column,
-                        sidechain_buf: smallvec![],
-                    },
-                );
+                // self.process_order.insert(
+                //     0,
+                //     ProcessOrder {
+                //         row,
+                //         column,
+                //         sidechain_buf: smallvec![],
+                //     },
+                // );
             }
             self.buffers
                 .push(smallvec![smallvec![0.0; self.frames]; self.channels]);
@@ -91,22 +93,35 @@ impl Context {
         self
     }
 
-    pub fn next_block(&mut self) -> &Buffer {
+    pub fn next_block(&mut self) -> &mut Buffer {
         // println!("self.process_order {:?}", &self.process_order);
         let ctx = self as *const Self;
-        for order in &self.process_order {
-            let buf = &mut self.buffers[order.row];
-            let signal = &mut self.signals[order.row];
+        for i in (0..self.signals.len()).rev() {
+            let signal = &mut self.signals[i];
+            let buf = &mut self.buffers[i];
             for node in signal {
                 match node {
                     Nodes::SinOsc(node) => node.process(
                         buf,
-                        Some(unsafe { &(&*ctx).buffers } as *const SmallVec<[Buffer; 64]>),
+                        Some(unsafe { &(&*ctx).buffers } as *const SmallVec<[Buffer; 4]>),
                     ),
                     Nodes::Add(node) => node.process(buf, None),
                 }
             }
         }
-        &self.buffers[0]
+        // for order in &self.process_order {
+        //     let buf = &mut self.buffers[order.row];
+        //     let signal = &mut self.signals[order.row];
+        //     for node in signal {
+        //         match node {
+        //             Nodes::SinOsc(node) => node.process(
+        //                 buf,
+        //                 Some(unsafe { &(&*ctx).buffers } as *const SmallVec<[Buffer; 4]>),
+        //             ),
+        //             Nodes::Add(node) => node.process(buf, None),
+        //         }
+        //     }
+        // }
+        &mut self.buffers[0]
     }
 }
