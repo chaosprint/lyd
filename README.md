@@ -19,7 +19,6 @@ fn main() {
     ]);
     println!("{:?}", ctx.next_block());
 }
-
 ```
 
 more in the `examples` folder.
