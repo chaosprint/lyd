@@ -1,6 +1,7 @@
 use crate::params::*;
 use crate::Buffer;
 use smallvec::SmallVec;
+use hashbrown::HashMap;
 
 #[cfg(feature = "no_std")]
 use core::f32::consts::PI;
@@ -100,7 +101,8 @@ impl SinOscStruct {
     pub fn process(
         &mut self,
         buf: &mut Buffer,
-        sidechain_buf: Option<*const SmallVec<[Buffer; 4]>>,
+        sidechain_buf: Option<*const HashMap<&'static str, Buffer>>,
+        // sidechain_buf: Option<*const HashMap<[Buffer; 4]>>,
     ) {
         let channels = buf.len();
         let frames = buf[0].len();
@@ -121,7 +123,9 @@ impl SinOscStruct {
             }
             let freq = match self.freq {
                 Param::Float(freq) => freq,
-                Param::Int(index) => unsafe { (&*sidechain_buf.unwrap())[index as usize][0][f] },
+                // Param::Int(index) => unsafe { (&*sidechain_buf.unwrap())[index as usize][0][f] },
+                Param::Str(s) => unsafe { (&*sidechain_buf.unwrap()).get(s).unwrap()[0][f] },
+                _ => 0.0,
             };
             self.phase += freq / self.sr as f32;
         }

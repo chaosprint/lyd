@@ -50,8 +50,8 @@ where
         .frames(BLOCK_SIZE)
         .sr(sample_rate)
         .build(&[
-            &[sin_osc().freq(1), add(0.1)],
-            &[sin_osc().freq(10.0).amp(300.), add(500.1)],
+            ("~mod", &[sin_osc().freq(10.0).amp(300.), add(500.1)]),
+            ("out", &[sin_osc().freq("~mod"), add(0.1)]),
         ]);
 
     let err_fn = |err| eprintln!("an error occurred on stream: {}", err);

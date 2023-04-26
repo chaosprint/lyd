@@ -9,10 +9,11 @@ pub use crate::enums::*;
 pub mod params;
 pub use crate::params::*;
 
+use hashbrown::HashMap;
 use smallvec::{smallvec, SmallVec};
 
 pub type Buffer = SmallVec<[SmallVec<[f32; 1024]>; 2]>;
-pub type Signal = SmallVec<[Nodes; 16]>; // Nodes is a enum
+pub type Signal = SmallVec<[Nodes; 8]>; // Nodes is a enum
 
 // #[derive(Debug)]
 // pub struct ProcessOrder {
@@ -29,8 +30,10 @@ pub struct Context {
     pub sr: u32,
     pub frames: usize,
     pub channels: usize,
-    pub signals: SmallVec<[Signal; 4]>,
-    pub buffers: SmallVec<[Buffer; 4]>,
+    pub signals: HashMap<&'static str, Signal>,
+    pub buffers: HashMap<&'static str, Buffer>,
+    // pub signals: SmallVec<[Signal; 4]>,
+    // pub buffers: SmallVec<[Buffer; 4]>,
     // pub process_order: SmallVec<[ProcessOrder; 1024]>, // 64*16
 }
 
@@ -40,8 +43,10 @@ impl Context {
             sr: 44100,
             frames: 128,
             channels: 2,
-            signals: smallvec![],
-            buffers: smallvec![],
+            signals: HashMap::new(),
+            buffers: HashMap::new(),
+            // signals: smallvec![],
+            // buffers: smallvec![],
             // process_order: smallvec![],
         }
     }
@@ -61,13 +66,15 @@ impl Context {
         self
     }
 
-    pub fn build(mut self, signals: &[&[NodeConfig]]) -> Self {
-        for (row, signal) in signals.iter().enumerate() {
-            self.signals.push(smallvec![]);
-            for (column, node) in signal.iter().enumerate() {
+    pub fn build(mut self, signals: &[(&'static str, &[NodeConfig])]) -> Self {
+        for (_row, chain) in signals.iter().enumerate() {
+            let (refname, signal) = chain;
+            // self.signals.push(smallvec![]);
+            let mut sig = smallvec![];
+            for (_, node) in signal.iter().enumerate() {
                 match node {
                     NodeConfig::SinOsc(config) => {
-                        self.signals[row].push(Nodes::SinOsc(SinOscStruct {
+                        sig.push(Nodes::SinOsc(SinOscStruct {
                             freq: config.freq,
                             phase: config.phase.as_float(),
                             amp: config.amp.as_float(),
@@ -75,35 +82,32 @@ impl Context {
                         }));
                     }
                     NodeConfig::Add(config) => {
-                        self.signals[row].push(Nodes::Add(AddStruct { add: config.add }));
+                        sig.push(Nodes::Add(AddStruct { add: config.add }));
                     }
                 }
-                // self.process_order.insert(
-                //     0,
-                //     ProcessOrder {
-                //         row,
-                //         column,
-                //         sidechain_buf: smallvec![],
-                //     },
-                // );
             }
-            self.buffers
-                .push(smallvec![smallvec![0.0; self.frames]; self.channels]);
+            self.signals.insert(refname, sig);
+            self.buffers.insert(
+                refname,
+                smallvec![smallvec![0.0; self.frames]; self.channels],
+            );
         }
         self
     }
 
     pub fn next_block(&mut self) -> &mut Buffer {
+        //-> &mut Buffer
         // println!("self.process_order {:?}", &self.process_order);
         let ctx = self as *const Self;
-        for i in (0..self.signals.len()).rev() {
-            let signal = &mut self.signals[i];
-            let buf = &mut self.buffers[i];
-            for node in signal {
+        for (refname, signal) in self.signals.iter_mut() {
+            // let signal = &mut self.signal.get_mut(key).unwrap();
+            let buf = &mut self.buffers.get_mut(refname).unwrap();
+
+            for node in signal.iter_mut() {
                 match node {
                     Nodes::SinOsc(node) => node.process(
                         buf,
-                        Some(unsafe { &(&*ctx).buffers } as *const SmallVec<[Buffer; 4]>),
+                        Some(unsafe { &(&*ctx).buffers } as *const HashMap<&'static str, Buffer>),
                     ),
                     Nodes::Add(node) => node.process(buf, None),
                 }
@@ -122,6 +126,6 @@ impl Context {
         //         }
         //     }
         // }
-        &mut self.buffers[0]
+        self.buffers.get_mut("out").unwrap()
     }
 }
