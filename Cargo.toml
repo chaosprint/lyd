@@ -1,6 +1,6 @@
 [package]
 name = "lyd"
-version = "0.0.1"
+version = "0.0.1-alpha.1"
 edition = "2021"
 keywords = [
 	"audio",
@@ -11,7 +11,7 @@ keywords = [
 ]
 readme = "README.md"
 license-file = "LICENSE"
-description = "Music DSP library written in Rust with a focus on performance and flexibility."
+description = "Music dsp library written in Rust with a focus on performance and elegancy."
 repository = "https://github.com/chaosprint/lyd.git"
 authors = ["Qichao Lan <chaosprint@gmail.com>"]
 
