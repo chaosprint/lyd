@@ -1,6 +1,6 @@
 [package]
 name = "lyd"
-version = "0.0.1-alpha.3"
+version = "0.0.1"
 edition = "2021"
 keywords = [
 	"audio",

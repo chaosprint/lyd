@@ -13,19 +13,19 @@
 use lyd::*;
 
 fn main() {
-    let mut ctx = context().frames(4).channels(2).sr(44100).build(
-        &[
-            &[sin_osc!(440.0)],
-        ]
-    );
+    let mut ctx = context().channels(2).frames(1024).sr(48000).build(&[
+        ("~mod", &[sin_osc().freq(10.0).amp(300.), add(500.1)]),
+        ("out", &[sin_osc().freq("~mod"), add(0.1)]),
+    ]);
     println!("{:?}", ctx.next_block());
 }
+
 ```
 
 more in the `examples` folder.
 
 ## contribution
 
-poc so far, many bugs, will break the apis.
+feel free to write your suggestions on github
 
-but feel free to write your suggestions at issues
+> poc phase with many bugs and the apis can significantly change
