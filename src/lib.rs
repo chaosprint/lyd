@@ -1,7 +1,9 @@
 #![cfg_attr(feature = "no_std", no_std)]
 
 pub mod enums;
+pub mod render;
 pub use crate::enums::*;
+pub use crate::render::render_to_wav;
 
 // pub mod macros;
 // pub use crate::macros::*;

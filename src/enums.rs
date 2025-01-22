@@ -1,7 +1,7 @@
 use crate::params::*;
 use crate::Buffer;
-use smallvec::SmallVec;
 use hashbrown::HashMap;
+use smallvec::SmallVec;
 
 #[cfg(feature = "no_std")]
 use core::f32::consts::PI;
